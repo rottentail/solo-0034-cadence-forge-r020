@@ -10,6 +10,8 @@ import (
 )
 
 // Visual creates a bounded inspection image, rather than changing the source.
+// It is an independent review operation and owns its mode arguments, output
+// bound and 30s deadline; process start/wait/exit reuse the shared lifecycle.
 func Visual(ctx context.Context, binary, path, mode string, m domain.Media) ([]byte, error) {
 	ctx, cancel := context.WithTimeout(ctx, 30*time.Second)
 	defer cancel()

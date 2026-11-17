@@ -33,6 +33,9 @@ func (r Runner) Encode(ctx context.Context, render domain.Render, stage string) 
 	if err != nil {
 		return "", err
 	}
+	// Formal composition encoding is the long-lived policy owner: its 3 minute
+	// deadline must outlast legitimate full-length films, unlike the short
+	// probe/inspection deadlines, while sharing the same process lifecycle.
 	ctx, cancel := context.WithTimeout(ctx, 3*time.Minute)
 	defer cancel()
 	if _, err = media.Run(ctx, r.Binary, args, 65536); err != nil {

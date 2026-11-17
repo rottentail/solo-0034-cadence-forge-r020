@@ -3,8 +3,8 @@ package media
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
-	"os/exec"
 	"strconv"
 	"strings"
 	"time"
@@ -24,14 +24,24 @@ func finite(s string) *float64 {
 	}
 	return &v
 }
+
+// Measure runs the independent loudness inspection scan. It owns its 40s
+// deadline and its log-bound policy; process start/wait/exit reuse the shared
+// media lifecycle instead of driving exec directly.
 func Measure(ctx context.Context, binary, path string) (Loudness, error) {
 	ctx, cancel := context.WithTimeout(ctx, 40*time.Second)
 	defer cancel()
-	cmd := exec.CommandContext(ctx, binary, "-nostdin", "-hide_banner", "-protocol_whitelist", "file,pipe", "-format_whitelist", Formats, "-i", path, "-vn", "-af", "loudnorm=I=-16:TP=-1.5:LRA=11:print_format=json", "-f", "null", "-")
+	args := []string{"-nostdin", "-hide_banner", "-protocol_whitelist", "file,pipe", "-format_whitelist", Formats, "-i", path, "-vn", "-af", "loudnorm=I=-16:TP=-1.5:LRA=11:print_format=json", "-f", "null", "-"}
 	var log LimitedBuffer
 	log.Limit = 32768
-	cmd.Stderr = &log
-	if err := cmd.Run(); err != nil {
+	proc, err := Start(ctx, binary, args, nil, &log)
+	if err != nil {
+		return Loudness{}, err
+	}
+	if err = proc.Wait(ctx); err != nil {
+		if errors.Is(err, context.DeadlineExceeded) || errors.Is(err, context.Canceled) {
+			return Loudness{}, err
+		}
 		return Loudness{}, fmt.Errorf("loudness scan: %w: %s", err, log.String())
 	}
 	text := log.String()

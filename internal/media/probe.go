@@ -10,9 +10,14 @@ import (
 	"time"
 )
 
+// Prober owns probe policy (ffprobe arguments and the short 15s deadline that
+// gates uploads); the underlying process lifecycle is the shared media one.
 type Prober struct{ Binary string }
 
 func (p Prober) Probe(ctx context.Context, path string) (domain.Media, error) {
+	// The short probe timeout is deliberate: an unreadable upload must release
+	// the media process quickly; long-form encode deadlines are a different
+	// policy owned by the encoding runner.
 	ctx, cancel := context.WithTimeout(ctx, 15*time.Second)
 	defer cancel()
 	data, err := Run(ctx, p.Binary, []string{"-v", "error", "-protocol_whitelist", "file,pipe", "-format_whitelist", Formats, "-show_format", "-show_streams", "-of", "json", path}, 1<<20)
